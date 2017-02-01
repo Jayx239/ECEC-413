@@ -19,7 +19,7 @@ void compute_using_openmp(int *, int *, int, int);
 void check_histogram(int *, int, int);
 
 #define HISTOGRAM_SIZE 500
-#define NUM_THREADS 4
+#define NUM_THREADS 16
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
@@ -108,9 +108,11 @@ void init_histogram(int * histogram, int histogram_size) {
         #pragma omp_set_num_threads NUM_THREADS
         int i;
         // Initialize histogram
-        #pragma omp parallel for default(none)\
+//        #pragma omp parallel for default(none)\
             shared(histogram_size, histogram) private(i)
-        for(i = 0; i < histogram_size; i++)
+    #pragma omp parallel for default(none) schedule(dynamic,(histogram_size/NUM_THREADS))\
+                             shared(histogram_size, histogram) private(i)    
+    for(i = 0; i < histogram_size; i++)
                 histogram[i] = 0;
 
 }
@@ -119,12 +121,13 @@ void build_histogram(int* input_data, int *histogram, int num_elements) {
     #pragma omp_set_num_threads NUM_THREADS
     int i;
     // Bin the elements in the input stream
-    #pragma omp parallel shared(input_data,histogram,num_elements) private(i)
-#pragma omp parallel for default(none)/*ordered schedule(dynamic)*/\
+//    #pragma omp parallel shared(input_data,histogram,num_elements) private(i)
+//#pragma omp parallel for default(none)/*ordered schedule(dynamic)*/\
              shared(input_data,histogram,num_elements) private(i)
-                     for(i = 0; i < num_elements; i++)
-                     
-                    //#pragma omp critical 
+            #pragma omp parallel for ordered schedule(dynamic,(num_elements/NUM_THREADS)) \
+                       shared(input_data,histogram,num_elements) private(i)      
+            for(i = 0; i < num_elements; i++) 
+                    #pragma omp ordered 
                                      histogram[input_data[i]]++;
                                          
 
@@ -137,21 +140,21 @@ void compute_using_openmp(int *input_data, int *histogram, int num_elements, int
                 #pragma omp_set_num_threads(NUM_THREADS)
         int i;
         // Initialize histogram
-                 #pragma omp parallel for default(none)\
+/*                 #pragma omp parallel for default(none) schedule(dynamic,(histogram_size/NUM_THREADS))\
                              shared(histogram_size, histogram) private(i)
                                      for(i = 0; i < histogram_size; i++)
                                                      histogram[i] = 0;
-        //init_histogram(histogram, histogram_size);    
+  */      init_histogram(histogram, histogram_size);    
     // Bin the elements in the input stream
     // Bin the elements in the input stream
-          #pragma omp parallel for ordered schedule(dynamic,1) \
+/*          #pragma omp parallel for ordered schedule(dynamic,(num_elements/NUM_THREADS)) \
                        shared(input_data,histogram,num_elements) private(i)
                                             for(i = 0; i < num_elements; i++)
                     #pragma omp ordered 
                     histogram[input_data[i]]++;
-                                                                                                          
+  */                                                                                                        
     
-//build_histogram(input_data,histogram,num_elements);
+build_histogram(input_data,histogram,num_elements);
 }
 
 void check_histogram(int *histogram, int num_elements, int histogram_size)
